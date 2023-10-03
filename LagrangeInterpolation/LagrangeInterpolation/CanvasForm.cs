@@ -14,20 +14,32 @@ namespace LagrangeInterpolation
 {
     public partial class CanvasForm : Form
     {
+        static int CanvasWidthDiff = 17;
+        static int pointLimit = 15;
+        static int pointSize = 10;
+        static Pen blackW2 = new Pen(Color.Black, 2);
+        static Pen redW2 = new Pen(Color.Red, 2);
         static float tDiv = 20;
         int lastSelectedIndex = -1;
         int grabbedIndex = -1;
-        int CanvasWidthDiff = 17;
-        int pointLimit = 15;
-        int pointSize = 10;
-        Pen blackW2 = new Pen(Color.Black, 2);
-        Pen redW2 = new Pen(Color.Red, 2);
+        int grabbedTIndex = -1;
+        
         public CanvasForm()
         {
             InitializeComponent();
             Redraw();
         }
+        private void Redraw()
+        {
+            TCanvas.Invalidate();
+            MainCanvas.Invalidate();
+        }
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            Redraw();
+        }
 
+        #region MainCanvasMethods
         private void MainCanvas_Paint(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
@@ -51,14 +63,16 @@ namespace LagrangeInterpolation
                 lastSelectedIndex = -1;
                 grabbedIndex = -1;
                 grabbedTIndex = -1;
+                Settings.TValues = Settings.ChordTValues;
+                Redraw();
             }
-            
+
             for (int i = 0; i < Settings.Points.Count; i++)
             {
                 PointF p = Settings.Points[i];
                 if (lastSelectedIndex == i)
                 {
-                    g.FillRectangle(Brushes.Red, p.X - pointSize/2, p.Y - pointSize/2, pointSize, pointSize);
+                    g.FillRectangle(Brushes.Red, p.X - pointSize / 2, p.Y - pointSize / 2, pointSize, pointSize);
                 }
                 else
                 {
@@ -66,14 +80,99 @@ namespace LagrangeInterpolation
                 }
                 g.DrawRectangle(Pens.Black, p.X - pointSize / 2, p.Y - pointSize / 2, pointSize, pointSize);
             }
-            
+
         }
-        private void Redraw()
+        private int GetPointCaptured(Point point)
         {
-            TCanvas.Invalidate();
-            MainCanvas.Invalidate();
+            for (int i = 0; i < Settings.Points.Count; i++)
+            {
+                if (Settings.Points[i].X + pointSize / 2 >= point.X && Settings.Points[i].Y + pointSize / 2 >= point.Y &&
+                    Settings.Points[i].X - pointSize / 2 <= point.X && Settings.Points[i].Y - pointSize / 2 <= point.Y)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+        private void AddNewPoint(Point point)
+        {
+            if (Settings.Points.Count >= pointLimit)
+            {
+                MessageBox.Show($"Point limit is {pointLimit}!");
+                return;
+            }
+            Settings.Points.Add(point);
+            int Count = Settings.TValues.Count;
+            if (Count == 0)
+            {
+                Settings.TValues.Add(0.0);
+            }
+            else if (Count == 1)
+            {
+                Settings.TValues.Add(1.0);
+            }
+            else
+            {
+                Settings.TValues = Settings.ChordTValues;
+            }
+            grabbedIndex = Settings.Points.Count - 1;
+            lastSelectedIndex = grabbedIndex;
+        }
+        private void MainCanvas_MouseDown(object sender, MouseEventArgs e)
+        {
+            int loc;
+            switch (e.Button)
+            {
+                case MouseButtons.Left:
+                    loc = GetPointCaptured(e.Location);
+                    if (loc == -1)
+                    {
+                        AddNewPoint(e.Location);
+                    }
+                    else
+                    {
+                        grabbedIndex = loc;
+                        lastSelectedIndex = loc;
+                    }
+                    break;
+                case MouseButtons.Right:
+                    loc = GetPointCaptured(e.Location);
+                    lastSelectedIndex = -1;
+                    if (loc == -1) break;
+                    Settings.Points.RemoveAt(loc);
+                    Settings.TValues.RemoveAt(loc);
+                    Settings.TValues = Settings.ChordTValues;
+                    break;
+                default: break;
+            }
+            Redraw();
+        }
+        private void MainCanvas_MouseUp(object sender, MouseEventArgs e)
+        {
+            grabbedIndex = -1;
         }
 
+        private void MainCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (grabbedIndex == -1) return;
+            int newX = e.X;
+            if (newX < 0) newX = 0;
+            if (newX > MainCanvas.Width) newX = MainCanvas.Width;
+            int newY = e.Y;
+            if (newY < 0) newY = 0;
+            if (newY > MainCanvas.Height) newY = MainCanvas.Height;
+            PointF newPoint = new PointF(newX, newY); ;
+            if (Settings.Points.Contains(newPoint))
+            {
+                return;
+            }
+            Settings.Points[grabbedIndex] = newPoint;
+            Redraw();
+        }
+        #endregion
+
+        #region TCanvasMethods
         private void TCanvas_Paint(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
@@ -131,85 +230,6 @@ namespace LagrangeInterpolation
             }
         }
         
-
-        private void Form1_Resize(object sender, EventArgs e)
-        {
-            Redraw();
-        }
-        private int GetPointCaptured(Point point)
-        {
-            for (int i = 0; i < Settings.Points.Count; i++)
-            {
-                if (Settings.Points[i].X + pointSize / 2 >= point.X && Settings.Points[i].Y + pointSize / 2 >= point.Y &&
-                    Settings.Points[i].X - pointSize / 2 <= point.X && Settings.Points[i].Y - pointSize / 2 <= point.Y)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private void AddNewPoint(Point point)
-        {
-            if (Settings.Points.Count >= pointLimit)
-            {
-                MessageBox.Show($"Point limit is {pointLimit}!");
-                return;
-            }
-            Settings.Points.Add(point);
-            int Count = Settings.TValues.Count;
-            if (Count == 0)
-            {
-                Settings.TValues.Add(0.0);
-            }
-            else if (Count == 1)
-            {
-                Settings.TValues.Add(1.0);
-            }
-            else
-            {
-                Settings.TValues = Settings.ChordTValues;
-            }
-            grabbedIndex = Settings.Points.Count - 1;
-            lastSelectedIndex = grabbedIndex;
-        }
-
-        private void MainCanvas_MouseDown(object sender, MouseEventArgs e)
-        {
-            int loc;
-            switch (e.Button)
-            { 
-                case MouseButtons.Left:
-                    loc = GetPointCaptured(e.Location);
-                    if (loc == -1)
-                    {
-                        AddNewPoint(e.Location);
-                    }
-                    else
-                    {
-                        grabbedIndex = loc;
-                        lastSelectedIndex = loc;
-                    }
-                    break;
-                case MouseButtons.Right:
-                    loc = GetPointCaptured(e.Location);
-                    lastSelectedIndex = -1;
-                    if (loc == -1) break;
-                    Settings.Points.RemoveAt(loc);
-                    Settings.TValues.RemoveAt(loc);
-                    Settings.TValues = Settings.ChordTValues;
-                    break;
-                default: break;
-            }
-            Redraw();
-        }
-        private void MainCanvas_MouseUp(object sender, MouseEventArgs e)
-        {
-            grabbedIndex = -1;
-        }
-
-        int grabbedTIndex = -1;
         private void GetTCaptured(Point point)
         {
             int startX = CanvasWidthDiff;
@@ -229,6 +249,7 @@ namespace LagrangeInterpolation
             }
             grabbedTIndex = -1;
         }
+
         private void TCanvas_MouseDown(object sender, MouseEventArgs e)
         {
             switch (e.Button)
@@ -245,26 +266,11 @@ namespace LagrangeInterpolation
             grabbedTIndex = -1;
         }
 
-        private void MainCanvas_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (grabbedIndex == -1) return;
-            int newX = e.X;
-            if (newX < 0) newX = 0;
-            if (newX > MainCanvas.Width) newX = MainCanvas.Width;
-            int newY = e.Y;
-            if (newY < 0) newY = 0;
-            if (newY > MainCanvas.Height) newY = MainCanvas.Height;
-            Settings.Points[grabbedIndex] = new PointF(newX, newY);
-            Redraw();
-        }
         private void TCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             if (grabbedTIndex == -1) return;
             int fullLength = TCanvas.Width - 2 * CanvasWidthDiff;
             int length = e.X - CanvasWidthDiff;
-            /*
-            if (length < 0) length = 0;
-            else if (length > TCanvas.Width - 2 * CanvasWidthDiff) length = TCanvas.Width - 2 * CanvasWidthDiff;*/
             double t = (double)length / fullLength;
 
             if (t <= Settings.TValues[grabbedTIndex - 1])
@@ -279,13 +285,9 @@ namespace LagrangeInterpolation
             Settings.TValues[grabbedTIndex] = t;
             Redraw();
         }
+        #endregion
 
-        private void ChordLCB_CheckedChanged(object sender, EventArgs e)
-        {
-            Settings.UseChordLengths = ChordLCB.Checked;
-            Redraw();
-        }
-
+        #region ParametricCurveFunctions
         private void DrawParametricLagrange(Graphics g, int n = 100)
         {
             int c = Settings.Points.Count;
@@ -297,21 +299,9 @@ namespace LagrangeInterpolation
                 pointsX.Add(new PointF((float)TValues[i], Settings.Points[i].X));
                 pointsY.Add(new PointF((float)TValues[i], Settings.Points[i].Y));
             }
-
             LagrangePolynomial FX = new LagrangePolynomial(pointsX);
             LagrangePolynomial FY = new LagrangePolynomial(pointsY);
-            
-            double t = 0;
-            double d = 1.0 / n;
-
-            PointF p0 = new PointF((float)FX.Calculate(t), (float)FY.Calculate(t));
-            while (t <= 1.0)
-            {
-                t += d;
-                PointF p1 = new PointF((float)FX.Calculate(t), (float)FY.Calculate(t));
-                g.DrawLine(blackW2, p0, p1);
-                p0 = p1;
-            }
+            DrawParametricCurve(g, FX.Calculate, FY.Calculate, n);
         }
 
         private void DrawParametricLagrangeGauss(Graphics g, int n = 100)
@@ -320,10 +310,8 @@ namespace LagrangeInterpolation
             List<PointF> pointsX = new List<PointF>();
             List<PointF> pointsY = new List<PointF>();
             List<double> TValues = Settings.UseChordLengths ? Settings.ChordTValues : Settings.TValues;
-
             double[,] xMatrix = new double[c,c+1];
             double[,] yMatrix = new double[c,c+1];
-
             for (int i = 0; i < c; i++)
             {
                 for (int j = 0; j < c; j++)
@@ -336,19 +324,29 @@ namespace LagrangeInterpolation
             }
             Polynomial FX = xMatrix.Solve();
             Polynomial FY = yMatrix.Solve();
-            
+            DrawParametricCurve(g, FX.Calculate, FY.Calculate, n);
+        }
 
+        private void DrawParametricCurve(Graphics g, Func<double, double> FX, Func<double, double> FY, int n = 100)
+        {
             double t = 0;
             double d = 1.0 / n;
-
-            PointF p0 = new PointF((float)FX.Calculate(t), (float)FY.Calculate(t));
+            PointF p0 = new PointF((float)FX(t), (float)FY(t));
             while (t <= 1.0)
             {
                 t += d;
-                PointF p1 = new PointF((float)FX.Calculate(t), (float)FY.Calculate(t));
+                PointF p1 = new PointF((float)FX(t), (float)FY(t));
                 g.DrawLine(blackW2, p0, p1);
                 p0 = p1;
             }
+        }
+        #endregion
+
+
+        private void ChordLCB_CheckedChanged(object sender, EventArgs e)
+        {
+            Settings.UseChordLengths = ChordLCB.Checked;
+            Redraw();
         }
 
         private void CLBtn_Click(object sender, EventArgs e)

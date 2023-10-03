@@ -128,7 +128,9 @@
             this.Controls.Add(this.ChordLCB);
             this.Controls.Add(this.TCanvas);
             this.Controls.Add(this.MainCanvas);
+            this.MinimumSize = new System.Drawing.Size(900, 425);
             this.Name = "CanvasForm";
+            this.ShowIcon = false;
             this.Text = "Lagrange interpolation";
             this.Resize += new System.EventHandler(this.Form1_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.MainCanvas)).EndInit();
